@@ -1,0 +1,66 @@
+<%- include("partials/header", { title: "User Profile" }) %>
+
+<section class="wrapper">
+  <h1 class="page-title">Add New Vehicle</h1>
+
+  <div class="card card-medium card-center">
+    <div class="actions-left">
+        <a href="/user" class="btn btn-outline">← Back to User Page</a>
+      </div> 
+
+    <h3>New Vehicle Information</h3>
+
+
+    <form class="form" id="addVehicleForm">
+      <label>License Plates</label>
+      <input type="text" name="license_plates" placeholder="e.g. ΙΚΥ-1234" required />
+
+      <label>Vehicle Type</label>
+      <select name="vehicle_type" placeholder="Choose vehicle type" required>
+        <option value="" disabled selected>
+          -- Choose vehicle type --
+        </option>
+        <option value="car">Car</option>
+        <option value="motorcycle">Motorcycle</option>
+        <option value="truck">Truck</option>
+      </select>
+
+      <label>Model</label>
+      <input type="text" name="model" placeholder="Vehicle model" required/>
+
+      <div class="actions-center">
+        <button type="submit" class="btn btn-primary">
+          Create Vehicle
+        </button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<script>
+  document.getElementById("addVehicleForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+  
+    const form = e.target;
+  
+    const res = await fetch("http://localhost:9876/api/user/addVehicle", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        license_plates: form.license_plates.value,
+        vehicle_type: form.vehicle_type.value,
+        model: form.model.value
+      })
+    });
+  
+    if (res.ok) {
+      window.location.href = "/user";
+    } else {
+      const err = await res.json();
+      alert(`Error ${err.return_code}: ${err.error}`);
+    }
+  });
+  </script>  
+
+<%- include("partials/footer") %>

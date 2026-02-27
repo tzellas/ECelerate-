@@ -1,0 +1,339 @@
+<%- include("partials/header", { title: "User Profile" }) %>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<section class="wrapper">
+  <h1 class="page-title">User Profile</h1>
+
+  <div class="card card-medium">
+    <h3>Account Information</h3>
+  
+    <div class="info-grid">
+      <div class="info-label">Username</div>
+      <div class="info-value" id="username"></div>
+
+      <div class="info-label">Email</div>
+      <div class="info-value" id="email"></div>
+
+      <div class="info-label">Name</div>
+      <div class="info-value" id="name"></div>
+    </div>
+  </div>
+  
+
+  <div class="card card-wide card-table">
+    <div class="card-header-with-button" >
+        <h3>My Vehicles</h3>
+
+        <div class="actions-center">
+            <a href="/user/addVehicle" class="btn btn-outline">
+            Add Vehicle
+            </a>
+        </div>
+    </div>
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th>License Plates</th>
+          <th>Type</th>
+          <th>Model</th>
+          <th>Battery Size (kWh)</th>
+        </tr>
+      </thead>
+      <tbody id="vehiclesBody"></tbody>
+    </table>
+  </div>
+
+  <div class="card card-wide card-table">
+    <div class="card-header-with-button">
+      <h3>User Statistics</h3>
+
+      <div class="actions-center stats-controls">
+        <label class="stats-control">
+          <span>View</span>
+          <select id="statsGranularity" class="btn btn-outline">
+            <option value="month" selected>Per Month</option>
+            <option value="year">Per Year</option>
+          </select>
+        </label>
+
+        <label class="stats-control" id="statsYearControl">
+          <span>Year</span>
+          <select id="statsYear" class="btn btn-outline">
+            <option value="" selected>Loading...</option>
+          </select>
+        </label>
+      </div>
+    </div>
+  
+    <div class="stats-grid">
+      <div class="stat-box">
+        <h4>Charging Sessions per Month</h4>
+        <canvas id="sessionsChart"></canvas>
+      </div>
+  
+      <div class="stat-box">
+        <h4>Total Energy Charged (kWh)</h4>
+        <canvas id="energyChart"></canvas>
+      </div>
+  
+      <div class="stat-box">
+        <h4>Money Spent (€)</h4>
+        <canvas id="moneyChart"></canvas>
+      </div>
+    </div>
+  </div>
+  
+
+</section>
+
+<script>
+  (async () => {
+    const res = await fetch("http://localhost:9876/api/user/vehicles", {
+      credentials: "include"
+    });
+  
+    if (!res.ok) {
+      console.error("Failed to load vehicles");
+      return;
+    }
+  
+    const vehicles = await res.json();
+    const tbody = document.getElementById("vehiclesBody");
+  
+    if (vehicles.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="4">No vehicles added yet</td>
+        </tr>
+      `;
+      return;
+    }
+  
+    tbody.innerHTML = vehicles.map(v => `
+      <tr>
+        <td>${v.license_plates}</td>
+        <td>${v.vehicle_type}</td>
+        <td>${v.model}</td>
+        <td>${v.battery_size}</td>
+      </tr>
+    `).join("");
+  })();
+  </script>
+  
+
+<script>
+  (async () => {
+    const res = await fetch("http://localhost:9876/api/user/me", {
+      credentials: "include"
+    });
+  
+    if (!res.ok) {
+      alert("Failed to load user profile");
+      return;
+    }
+  
+    const user = await res.json();
+  
+    document.getElementById("username").textContent = user.username;
+    document.getElementById("email").textContent = user.email;
+    document.getElementById("name").textContent =
+      `${user.first_name ?? ""} ${user.last_name ?? ""}`.trim();
+  })();
+  </script>
+  
+
+<script>
+    const API_BASE = "http://localhost:9876/api";
+    const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+    // Charging sessions per month
+    const sessionsChart = new Chart(document.getElementById("sessionsChart"), {
+      type: "bar",
+      data: {
+        labels: [],
+        datasets: [{
+          label: "Sessions",
+          data: [],
+          backgroundColor: "#00c853"
+        }]
+      },
+      options: {
+        plugins: {
+          legend: { display: false }
+        }
+      }
+    });
+  
+    // Energy charged
+    const energyChart = new Chart(document.getElementById("energyChart"), {
+      type: "line",
+      data: {
+        labels: [],
+        datasets: [{
+          label: "kWh",
+          data: [],
+          borderColor: "#00c853",
+          backgroundColor: "rgba(0,200,83,0.2)",
+          tension: 0.3,
+          fill: true
+        }]
+      },
+      options: {
+        plugins: {
+          legend: { display: false }
+        }
+      }
+    });
+  
+    // Money spent
+    const moneyChart = new Chart(document.getElementById("moneyChart"), {
+      type: "line",
+      data: {
+        labels: [],
+        datasets: [{
+          label: "€",
+          data: [],
+          borderColor: "#ff5252",
+          backgroundColor: "rgba(255,82,82,0.2)",
+          tension: 0.3,
+          fill: true
+        }]
+      },
+      options: {
+        plugins: {
+          legend: { display: false }
+        }
+      }
+    });
+
+    const statsGranularity = document.getElementById("statsGranularity");
+    const statsYear = document.getElementById("statsYear");
+    const statsYearControl = document.getElementById("statsYearControl");
+
+    async function loadYears() {
+      const res = await fetch(`${API_BASE}/user/stats/years`, { credentials: "include" });
+      if (res.status === 401) {
+        window.location.href = "/login";
+        return [];
+      }
+      if (!res.ok) {
+        statsYear.innerHTML = `<option value="">No data</option>`;
+        return [];
+      }
+      const data = await res.json();
+      const years = Array.isArray(data.years) ? data.years : [];
+      if (years.length === 0) {
+        statsYear.innerHTML = `<option value="">No data</option>`;
+        return [];
+      }
+      statsYear.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join("");
+      statsYear.value = String(years[years.length - 1]);
+      return years;
+    }
+
+    async function fetchStats(granularity, year, yearRange) {
+      if (granularity === "month") {
+        const res = await fetch(`${API_BASE}/user/stats?granularity=month&year=${encodeURIComponent(year)}`, {
+          credentials: "include"
+        });
+        if (res.status === 401) {
+          window.location.href = "/login";
+          throw new Error("Not authenticated");
+        }
+        if (!res.ok) throw new Error("Failed to load monthly stats");
+        return res.json();
+      }
+
+      const [fromYear, toYear] = yearRange;
+      const res = await fetch(
+        `${API_BASE}/user/stats?granularity=year&from=${encodeURIComponent(fromYear)}&to=${encodeURIComponent(toYear)}`,
+        { credentials: "include" }
+      );
+      if (res.status === 401) {
+        window.location.href = "/login";
+        throw new Error("Not authenticated");
+      }
+      if (!res.ok) throw new Error("Failed to load yearly stats");
+      return res.json();
+    }
+
+    function setChartLabels(labels) {
+      sessionsChart.data.labels = labels;
+      energyChart.data.labels = labels;
+      moneyChart.data.labels = labels;
+    }
+
+    function setChartDataZeros(count) {
+      const zeros = Array.from({ length: count }, () => 0);
+      sessionsChart.data.datasets[0].data = zeros;
+      energyChart.data.datasets[0].data = zeros;
+      moneyChart.data.datasets[0].data = zeros;
+    }
+
+    function applyStatsToCharts(data) {
+      sessionsChart.data.labels = data.labels;
+      sessionsChart.data.datasets[0].data = data.sessions;
+      energyChart.data.labels = data.labels;
+      energyChart.data.datasets[0].data = data.energy;
+      moneyChart.data.labels = data.labels;
+      moneyChart.data.datasets[0].data = data.money;
+
+      sessionsChart.update();
+      energyChart.update();
+      moneyChart.update();
+    }
+
+    async function updateCharts() {
+      const mode = statsGranularity.value;
+      const isMonth = mode === "month";
+      statsYearControl.style.display = isMonth ? "flex" : "none";
+
+      try {
+        if (isMonth) {
+          const year = statsYear.value;
+          if (!year) return;
+          setChartLabels(MONTH_LABELS);
+          setChartDataZeros(12);
+          sessionsChart.update();
+          energyChart.update();
+          moneyChart.update();
+          const data = await fetchStats("month", year);
+          applyStatsToCharts(data);
+        } else {
+          const currentYear = new Date().getFullYear();
+          const yearLabels = Array.from({ length: 5 }, (_, i) => String(currentYear - 4 + i));
+          setChartLabels(yearLabels);
+          setChartDataZeros(5);
+          sessionsChart.update();
+          energyChart.update();
+          moneyChart.update();
+          const data = await fetchStats("year", null, [currentYear - 4, currentYear]);
+          applyStatsToCharts(data);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    (async () => {
+      await loadYears();
+      statsGranularity.addEventListener("change", updateCharts);
+      statsYear.addEventListener("change", updateCharts);
+      await updateCharts();
+    })();
+
+  </script>
+    
+  <!-- replace the data with this below -->
+  <!-- fetch("/api/user/stats/sessions")
+    .then(res => res.json())
+    .then(data => {
+      sessionsChart.data.labels = data.labels;
+      sessionsChart.data.datasets[0].data = data.values;
+      sessionsChart.update();
+    })
+    .catch(err => console.error(err)); -->
+
+<%- include("partials/footer") %>

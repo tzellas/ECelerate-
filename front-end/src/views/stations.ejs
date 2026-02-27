@@ -1,0 +1,106 @@
+<%- include("partials/header", { title: "Charging Stations Map" }) %>
+
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<section class="wrapper">
+  <h1 class="page-title">Charging Stations</h1>
+
+  <div class="card card-wide">
+    <label>Filter by status</label>
+    <select id="statusFilter">
+      <option value="">All</option>
+      <option value="available">Available</option>
+      <option value="reserved">Reserved</option>
+      <option value="charging">Charging</option>
+      <option value="offline">Offline</option>
+      <option value="malfunction">Malfunction</option>
+    </select>
+  </div>
+
+  <div class="card card-wide">
+    <div id="map" style="height: 500px;"></div>
+  </div>
+</section>
+
+<script>
+    const map = L.map("map").setView([37.9838, 23.7275], 11);
+    
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "© OpenStreetMap contributors"
+    }).addTo(map);
+    
+    let markersLayer = L.layerGroup().addTo(map);
+    
+    async function loadStations(status = "") {
+      markersLayer.clearLayers();
+    
+      let url = "http://localhost:9876/api/points";
+      if (status) {
+        url += `?status=${status}`;
+      }
+    
+      const res = await fetch(url);
+      const chargers = await res.json();
+    
+      // =========================
+      // GROUP chargers by station (lat+lon)
+      // =========================
+      const stationsMap = {};
+    
+      chargers.forEach(c => {
+        const key = `${c.lat},${c.lon}`;
+    
+        if (!stationsMap[key]) {
+          stationsMap[key] = {
+            lat: c.lat,
+            lon: c.lon,
+            providerName: c.providerName,
+            chargers: []
+          };
+        }
+    
+        stationsMap[key].chargers.push({
+          pointid: c.pointid,
+          status: c.status,
+          cap: c.cap
+        });
+      });
+    
+      // =========================
+      // CREATE one marker per station
+      // =========================
+      Object.values(stationsMap).forEach(station => {
+        const marker = L.marker([station.lat, station.lon]).addTo(markersLayer);
+    
+        const chargersHtml = station.chargers.map(ch => `
+          <li>
+            Charger <b>#${ch.pointid}</b> —
+            Status: <b>${ch.status}</b>,
+            Capacity: ${ch.cap} kW
+          </li>
+        `).join("");
+    
+        marker.bindPopup(`
+          <strong>${station.providerName}</strong><br/>
+          Chargers at this station:
+          <ul style="padding-left: 18px; margin: 6px 0;">
+            ${chargersHtml}
+          </ul>
+        `);
+      });
+    }
+    
+    // Initial load
+    loadStations();
+    
+    // Filter
+    document.getElementById("statusFilter").addEventListener("change", (e) => {
+      loadStations(e.target.value);
+    });
+</script>
+    
+<%- include("partials/footer") %>

@@ -1,0 +1,16 @@
+num_chargers,lon,lat,provider,price_per_kwh,address_street,address_number,postal_code,area
+6,23.75229,38.08327,big_energy,0.26,Tsimiski,100,18413,Filadelfeia
+10,23.735,37.938122,dei,0.53,Ioanni Foka,161,16566,Mosxato
+3,23.673648,38.056552,bombastic_electric,0.55,Vouliagmenis,61,15921,Ilion
+3,23.757858,37.99454,big_energy,0.36,Tsimiski,75,14889,Ano Patisia
+3,23.679386,37.975922,dei,0.49,Panepistimiou,21,14727,Athens
+5,23.727395,38.078772,bombastic_electric,0.3,Panepistimiou,87,13895,Mosxato
+2,23.756166,37.987303,big_energy,0.52,Leoforos Panagi Tsaldari,4,11284,Ilion
+2,23.647174,38.001056,dei,0.27,Syngrou,134,19867,Ilion
+6,23.705620,37.988500,big_energy,0.36,Leoforos Athinon,111,15778,Nea Smyrni
+2,23.664768,38.008247,big_energy,0.5,Syngrou,60,13077,Chalandri
+5,23.672958,38.039008,bombastic_electric,0.42,Anapafseos,186,16652,Ilion
+9,23.775052,37.942849,dei,0.55,Leoforos Athinon,185,17152,Chalandri
+6,23.798684,37.925078,bombastic_electric,0.27,Tsimiski,149,18459,Filadelfeia
+10,23.701207,37.915421,bombastic_electric,0.29,Anapafseos,34,18790,Mosxato
+8,23.739664,38.073008,bombastic_electric,0.56,Leoforos Athinon,102,14994,Mosxato

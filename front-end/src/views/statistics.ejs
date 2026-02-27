@@ -1,0 +1,172 @@
+<%- include("partials/header", { title: "General Statistics" }) %>
+
+<section class="wrapper">
+  <h1 class="page-title">General Statistics</h1>
+
+  <!-- FILTERS -->
+  <div class="card card-wide">
+    <h3>Filters</h3>
+
+    <form class="form" id="statsFilters">
+      <label>Charging Point ID</label>
+      <input type="number" name="pointId" placeholder="e.g. 12" />
+
+      <label>Status</label>
+      <select name="status">
+        <option value="">-- Any --</option>
+        <option value="available">Available</option>
+        <option value="charging">Charging</option>
+        <option value="offline">Offline</option>
+        <option value="malfunction">Malfunction</option>
+      </select>
+
+      <label>From</label>
+      <input type="date" name="from" required />
+
+      <label>To</label>
+      <input type="date" name="to" required />
+
+      <button type="submit" class="btn btn-primary">Apply Filters</button>
+    </form>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="card card-wide card-table">
+    <h3>Charging Points</h3>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Station</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="pointsBody"></tbody>
+    </table>
+  </div>
+
+  <div class="card card-wide card-table">
+    <h3>Charging Sessions</h3>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Session ID</th>
+          <th>Start</th>
+          <th>End</th>
+          <th>Energy (kWh)</th>
+        </tr>
+      </thead>
+      <tbody id="sessionsBody"></tbody>
+    </table>
+  </div>
+
+  <div class="card card-wide card-table">
+    <h3>Point Status History</h3>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Old Status</th>
+          <th>New Status</th>
+        </tr>
+      </thead>
+      <tbody id="statusHistoryBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<script>
+    document.getElementById("statsFilters").addEventListener("submit", async (e) => {
+      e.preventDefault();
+    
+      const form = e.target;
+      const pointId = form.pointId.value;
+      const status = form.status.value;
+      const from = form.from.value;
+      const to = form.to.value;
+    
+      /* =====================
+         POINTS
+         ===================== */
+      let pointsUrl = "http://localhost:9876/api/points";
+      if (status) {
+        pointsUrl += `?status=${status}`;
+      }
+    
+      const pointsRes = await fetch(pointsUrl);
+      const points = await pointsRes.json();
+    
+      const pointsBody = document.getElementById("pointsBody");
+      pointsBody.innerHTML = points.length
+            ? points.map(p => `
+                <tr>
+                    <td>${p.charger_id}</td>
+                    <td>${p.location ?? "-"}</td>
+                    <td>${p.status}</td>
+                </tr>
+                `).join("")
+            : `<tr><td colspan="3">No charging points found</td></tr>`;
+
+      /* =====================
+         SESSIONS (requires pointId)
+         ===================== */
+      const sessionsBody = document.getElementById("sessionsBody");
+      sessionsBody.innerHTML = "";
+    
+      if (pointId) {
+        const sessionsRes = await fetch(
+          `http://localhost:9876/api/sessions/${pointId}/${from}/${to}`
+        );
+    
+        if (sessionsRes.ok) {
+          const sessions = await sessionsRes.json();
+    
+          sessionsBody.innerHTML = sessions.length
+            ? sessions.map(s => `
+                <tr>
+                  <td>${s.charging_id}</td>
+                  <td>${s.connection_time}</td>
+                  <td>${s.disconnection_time ?? "-"}</td>
+                  <td>${s.kwh_needed}</td>
+                </tr>
+              `).join("")
+            : `<tr><td colspan="4">No sessions in this period</td></tr>`;
+        }
+      } else {
+        sessionsBody.innerHTML =
+          `<tr><td colspan="4">Select a charging point</td></tr>`;
+      }
+    
+      /* =====================
+         POINT STATUS HISTORY (requires pointId)
+         ===================== */
+      const statusBody = document.getElementById("statusHistoryBody");
+      statusBody.innerHTML = "";
+    
+      if (pointId) {
+        const statusRes = await fetch(
+          `http://localhost:9876/api/pointstatus/${pointId}/${from}/${to}`
+        );
+    
+        if (statusRes.ok) {
+          const history = await statusRes.json();
+    
+          statusBody.innerHTML = history.length
+            ? history.map(h => `
+                <tr>
+                  <td>${h.time}</td>
+                  <td>${h.old_status}</td>
+                  <td>${h.new_status}</td>
+                </tr>
+              `).join("")
+            : `<tr><td colspan="3">No status changes</td></tr>`;
+        }
+      } else {
+        statusBody.innerHTML =
+          `<tr><td colspan="3">Select a charging point</td></tr>`;
+      }
+    });
+</script>
+     
+
+<%- include("partials/footer") %>

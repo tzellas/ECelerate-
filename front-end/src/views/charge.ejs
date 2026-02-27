@@ -1,0 +1,462 @@
+<%- include("partials/header", { title: "Charge" }) %>
+
+<section class="wrapper">
+  <h1 class="page-title">Charge Vehicle</h1>
+
+  <div id="chargeRoot"></div>
+</section>
+
+<script>
+/* STATE - variables */
+let initData = null;
+let chargingData = {};
+let chargingTimer = null;
+let chargingStartTime = Date.now();
+let chargingMaxSeconds = null; // equals selected money
+
+let chargeState = "idle"; // idle | reserved | charging | summary
+
+
+/* RENDER FUNCTIONS */
+
+function renderIdle() {
+    const stations = initData.stations;
+    const vehicles = initData.vehicles;
+    const balance = initData.balance;
+  
+    document.getElementById("chargeRoot").innerHTML = `
+      <div class="card card-medium card-center">
+        <h3>Start or Reserve Charging</h3>
+  
+        <p>
+          Balance: <b>€${balance.money.toFixed(2)}</b><br/>
+          Available Points: <b>${balance.points}</b>
+        </p>
+  
+        <form class="form" id="chargeForm">
+          <label>Action</label>
+          <select id="action" required>
+            <option value="">-- Choose --</option>
+            <option value="start">Start Charging</option>
+            <option value="reserve">Reserve Position</option>
+          </select>
+  
+          <label>Station</label>
+          <select id="stationSelect" required>
+            <option value="">-- Choose station --</option>
+            ${stations.map(s => `
+              <option value="${s.station_id}"
+                data-chargers='${JSON.stringify(s.available_chargers)}'>
+                ${s.provider} – ${s.address}
+                (${s.available_chargers.length} available)
+              </option>
+            `).join("")}
+          </select>
+  
+          <label>Vehicle</label>
+          <select id="vehicleSelect" required>
+            <option value="">-- Choose vehicle --</option>
+            ${vehicles.map(v => `
+              <option value="${v.license_plates}">
+                ${v.license_plates} (${v.model} ${v.vehicle_type})
+              </option>
+            `).join("")}
+          </select>
+  
+          <label>Money (€)</label>
+          <input
+            type="number"
+            id="moneyInput"
+            min="1"
+            step="1"
+            required
+          />
+  
+          <label>Points to use</label>
+          <input
+            type="number"
+            id="pointsInput"
+            min="0"
+            step="1"
+            value="0"
+          />
+  
+          <div class="actions-center">
+            <button type="submit" class="btn btn-primary">
+              Submit
+            </button>
+          </div>
+        </form>
+      </div>
+    `;
+  
+    document.getElementById("chargeForm").onsubmit = handleChargeSubmit;
+}
+  
+
+function renderReserved() {
+  const r = initData.activeReservation;
+
+  document.getElementById("chargeRoot").innerHTML = `
+    <div class="card card-medium card-center">
+      <h3>Active Reservation</h3>
+
+      <p>
+        <b>Station:</b> ${r.provider}<br/>
+        <b>Address:</b>
+        ${r.address_street} ${r.address_number},
+        ${r.postal_code} ${r.area}<br/>
+        <b>Reserved until:</b>
+        ${new Date(r.reservation_end_time).toLocaleString()}<br/>
+        <b>Current reservation cost:</b> €${r.reservation_price}
+      </p>
+
+      <div class="actions-center">
+        <button class="btn btn-primary" id="startChargingBtn">
+          Start charging on my reserved position
+        </button>
+      </div>
+    </div>
+  `;
+
+  document
+    .getElementById("startChargingBtn")
+    .addEventListener("click", async () => {
+      const res = await fetch(
+        "http://localhost:9876/api/charge/start/reserved",
+        {
+          method: "POST",
+          credentials: "include"
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || "Reservation lost");
+
+        // Reservation is no longer valid → reload state
+        const initRes = await fetch(
+          "http://localhost:9876/api/charge/initialize",
+          { credentials: "include" }
+        );
+        initData = await initRes.json();
+
+        chargeState = "idle";
+        render();
+        return;
+      }
+
+      chargingStartTime = Date.now();
+      chargingMaxSeconds = data.amount;
+
+      chargeState = "charging";
+      render();
+    });
+}
+
+
+function renderCharging() {
+  const elapsedSeconds = Math.floor(
+    (Date.now() - chargingStartTime) / 1000
+  );
+
+  const remainingSeconds = Math.max(
+    0,
+    chargingMaxSeconds - elapsedSeconds
+  );
+
+  document.getElementById("chargeRoot").innerHTML = `
+    <div class="card card-medium card-center">
+      <h3>Charging in Progress</h3>
+
+      <p>
+        Time remaining:
+        <b><span id="timeRemaining">${remainingSeconds}</span>s</b>
+      </p>
+
+      <div class="progress-bar">
+        <div
+          class="progress"
+          id="progressBar"
+          style="width: ${
+            (remainingSeconds / chargingMaxSeconds) * 100
+          }%;"
+        ></div>
+      </div>
+
+      <div class="actions-center">
+        <button class="btn btn-outline" id="stopChargingBtn">
+          Stop Charging
+        </button>
+      </div>
+    </div>
+  `;
+
+  // Clear any previous timer
+  if (chargingTimer) {
+    clearInterval(chargingTimer);
+  }
+
+  chargingTimer = setInterval(async () => {
+    const elapsed = Math.floor(
+      (Date.now() - chargingStartTime) / 1000
+    );
+
+    const remaining = Math.max(
+      0,
+      chargingMaxSeconds - elapsed
+    );
+
+    const percent =
+      (remaining / chargingMaxSeconds) * 100;
+
+    const timeEl = document.getElementById("timeRemaining");
+    const barEl = document.getElementById("progressBar");
+
+    if (timeEl) timeEl.textContent = remaining;
+    if (barEl) barEl.style.width = percent + "%";
+
+    // Auto-stop when time is up
+    if (remaining <= 0) {
+      clearInterval(chargingTimer);
+      await stopChargingAndShowSummary();
+    }
+  }, 1000);
+
+  document
+    .getElementById("stopChargingBtn")
+    .onclick = async () => {
+      clearInterval(chargingTimer);
+      await stopChargingAndShowSummary();
+    };
+}
+
+
+
+function renderSummary(data) {
+  document.getElementById("chargeRoot").innerHTML = `
+    <div class="card card-medium card-center">
+      <h3>Charging Summary</h3>
+
+      <p>
+        Duration: ${data.duration_seconds} sec<br/>
+        Energy charged: €${data.euros_charged}<br/>
+        Money charged: €${data.money_charged}<br/>
+        Points used: ${data.points_used}<br/>
+        Points earned: ${data.points_earned}
+      </p>
+
+      <button class="btn btn-primary" onclick="location.href='/charge'">
+        Back to Charge Page
+      </button>
+    </div>
+  `;
+}
+
+
+/* handle logic functions */
+async function handleChargeSubmit(e) {
+  e.preventDefault();
+
+  const action = document.getElementById("action").value;
+  const stationSelect = document.getElementById("stationSelect");
+
+  const money = Number(document.getElementById("moneyInput").value);
+  const points = Number(document.getElementById("pointsInput").value);
+
+  const balanceMoney = initData.balance.money;
+  const balancePoints = initData.balance.points;
+
+  const MAX_RESERVATION_LOSS = 12;
+  const RESERVATION_MINUTES = 120;
+
+  if (!action) {
+    alert("Please choose an action");
+    return;
+  }
+
+  if (!stationSelect.value) {
+    alert("Please choose a station");
+    return;
+  }
+
+  if (money <= 0) {
+    alert("Money must be greater than 0");
+    return;
+  }
+
+  if (money + MAX_RESERVATION_LOSS > balanceMoney) {
+    alert(
+      `Insufficient balance. You need €${money + MAX_RESERVATION_LOSS} available (charging + max reservation loss).`
+    );
+    return;
+  }
+
+  if (!Number.isInteger(points) || points < 0) {
+    alert("Points must be a positive integer");
+    return;
+  }
+
+  if (points > money) {
+    alert("Points cannot exceed money");
+    return;
+  }
+
+  if (points > balancePoints) {
+    alert("You do not have enough points");
+    return;
+  }
+
+  // Persist charging data
+  const chargers = JSON.parse(
+    stationSelect.selectedOptions[0].dataset.chargers
+  );
+
+  chargingData.money = money;
+  chargingData.points = points;
+  chargingData.chargerId = chargers[0]; // first available charger
+  chargingData.stationId = stationSelect.value;
+
+  // RESERVE FLOW (120 minutes)
+  if (action === "reserve") {
+    const res = await fetch(
+      `http://localhost:9876/api/charge/reserve/${chargingData.chargerId}/${RESERVATION_MINUTES}`,
+      {
+        method: "GET",
+        credentials: "include"
+      }
+    );
+
+    const vehiclePlate = document.getElementById("vehicleSelect").value;
+    await fetch("http://localhost:9876/api/charge/intent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        money,
+        points,
+        chargerId: chargingData.chargerId,
+        stationId: chargingData.stationId,
+        vehiclePlate
+      })      
+    });
+    
+
+    if (!res.ok) {
+      alert("Failed to create reservation");
+      return;
+    }
+
+    // Refresh init data → reservation now exists
+    const initRes = await fetch(
+      "http://localhost:9876/api/charge/initialize",
+      { credentials: "include" }
+    );
+
+    initData = await initRes.json();
+    chargeState = "reserved";
+    render();
+    return;
+  }
+
+  // START CHARGING (direct)
+  if (action === "start") {
+    const chargers = JSON.parse(
+      stationSelect.selectedOptions[0].dataset.chargers
+    );
+  
+    const chargerId = chargers[0]; // first available
+    const vehiclePlate =
+      document.getElementById("vehicleSelect").value;
+  
+    const res = await fetch(
+      "http://localhost:9876/api/charge/start/direct",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          chargerId,
+          vehiclePlate,
+          money,
+          points
+        })
+      }
+    );
+  
+    if (!res.ok) {
+      const err = await res.json();
+      alert(err.error || "Failed to start charging");
+      return;
+    }
+
+    chargingStartTime = Date.now();
+    chargingMaxSeconds = money;
+  
+    chargeState = "charging";
+    render();
+  }
+  
+}
+
+async function stopChargingAndShowSummary() {
+  const res = await fetch(
+    "http://localhost:9876/api/charge/stop",
+    {
+      method: "POST",
+      credentials: "include"
+    }
+  );
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    alert(data.error || "Failed to stop charging");
+    return;
+  }
+
+  // Store summary data for renderSummary()
+  window.chargingSummary = data;
+
+  chargeState = "summary";
+  render();
+}
+
+
+/* MAIN RENDER SWITCH */
+
+function render() {
+  if (chargeState === "idle") renderIdle();
+  else if (chargeState === "reserved") renderReserved();
+  else if (chargeState === "charging") renderCharging();
+  else if (chargeState === "summary") renderSummary(window.chargingSummary);
+  ;
+}
+
+/* Initial render */
+(async () => {
+    const res = await fetch("http://localhost:9876/api/charge/initialize", {
+      credentials: "include"
+    });
+  
+    if (!res.ok) {
+      alert("Failed to load charge page data");
+      return;
+    }
+  
+    initData = await res.json();
+  
+    // Decide initial state
+    if (initData.activeReservation) {
+      chargeState = "reserved";
+    } else {
+      chargeState = "idle";
+    }
+  
+    render();
+  })();
+  
+</script>
+
+<%- include("partials/footer") %>

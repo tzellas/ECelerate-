@@ -1,0 +1,58 @@
+<%- include("partials/header", { title: "Payment History" }) %>
+
+<section class="wrapper">
+  <h1 class="page-title">Payment History</h1>
+
+  <div class="card card-wide card-table">
+    <div class="actions-left">
+      <a href="/balance" class="btn btn-outline">← Back to Balance</a>
+    </div>
+    
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Charge ID</th>
+          <th>Amount (€)</th>
+          <th>Points Used</th>
+        </tr>
+      </thead>
+      <tbody id="allPaymentsBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<script>
+  (async () => {
+    // All Payments
+    const payRes = await fetch(
+      "http://localhost:9876/api/balance/payments",
+      { credentials: "include" }
+    );
+  
+    if (!payRes.ok) return;
+  
+    const payments = await payRes.json();
+    const tbody = document.getElementById("allPaymentsBody");
+  
+    if (payments.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="4">No payments yet</td>
+        </tr>
+      `;
+      return;
+    }
+  
+    tbody.innerHTML = payments.map(p => `
+      <tr>
+        <td>${new Date(p.paid_at).toLocaleString()}</td>
+        <td>${p.charge_id ?? "-"}</td>
+        <td>${Number(p.price_paid).toFixed(2)}</td>
+        <td>${p.points_used ?? 0}</td>
+      </tr>
+    `).join("");
+  })();
+  </script>
+
+<%- include("partials/footer") %>

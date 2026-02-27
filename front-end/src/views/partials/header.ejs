@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+
+<header class="navbar">
+  <h2>⚡ ECcelerate App</h2>
+
+  <nav id="navLinks">
+    <!-- JS will inject links here -->
+  </nav>
+</header>
+
+<main class="container">
+
+<script>
+  (async () => {
+    const protectedPaths = [
+      "/home",
+      "/user",
+      "/charge",
+      "/balance",
+      "/balance/history",
+      "/user/addVehicle",
+      "/stations"
+    ];
+  
+    if (!protectedPaths.includes(window.location.pathname)) return;
+  
+    const res = await fetch("http://localhost:9876/api/auth/me", {
+      credentials: "include"
+    });
+  
+    if (!res.ok) {
+      window.location.href = "/login";
+    }
+  })();
+  </script>
+
+<script>
+fetch("http://localhost:9876/api/auth/me", {
+  credentials: "include"
+})
+.then(res => res.json())
+.then(data => {
+  const nav = document.getElementById("navLinks");
+
+  if (data.loggedIn) {
+    nav.innerHTML = `
+      <a href="/home">Home</a>
+      <a href="/stations">Stations Map</a>
+      <a href="/charge">Charge</a>
+      <a href="/balance">Balance</a>
+      <a href="/user">User Profile</a>
+      <a href="#" id="logoutBtn">Sign Out</a>
+    `;
+
+    document.getElementById("logoutBtn").onclick = async () => {
+      await fetch("http://localhost:9876/api/auth/logout", {
+        method: "POST",
+        credentials: "include"
+      });
+    
+      window.location.href = "/";
+    };
+  } else {
+    nav.innerHTML = `
+      <a href="/">Welcome Page</a>
+      <a href="/login" class="btn btn-outline">Sign In</a>
+    `;
+  }
+});
+</script>

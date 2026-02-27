@@ -1,0 +1,279 @@
+#!/usr/bin/env python3
+import argparse
+import json
+import os
+import sys
+from urllib.parse import urlencode
+import urllib.request
+import urllib.error
+
+BASE_URL = os.environ.get("SE25_BASE_URL", "http://localhost:9876/api")
+
+SCOPES = {
+    "healthcheck",
+    "resetpoints",
+    "addpoints",
+    "points",
+    "point",
+    "reserve",
+    "updpoint",
+    "newsession",
+    "sessions",
+    "pointstatus",
+}
+
+
+def print_help():
+    print(
+        """Usage:
+  se2525 scope --param value [--param value ...] --format csv|json
+
+Scopes:
+  healthcheck
+  resetpoints
+  addpoints --source <csv>
+  points [--status <status>] [--format <csv|json>]
+  point --id <pointid>
+  reserve --id <pointid> [--minutes <minutes>]
+  updpoint --id <pointid> [--status <status>] [--price <kwhprice>]
+  newsession --id --starttime --endtime --startsoc --endsoc --totalkwh --kwhprice --amount
+  sessions --id --from --to [--format <csv|json>]
+  pointstatus --id --from --to [--format <csv|json>]
+"""
+    )
+
+
+def to_csv(rows):
+    if not isinstance(rows, list) or len(rows) == 0:
+        return ""
+    headers = list(rows[0].keys())
+
+    def escape(v):
+        if v is None:
+            return ""
+        s = str(v)
+        if "," in s or "\n" in s or "\"" in s:
+            return '"' + s.replace('"', '""') + '"'
+        return s
+
+    lines = [",".join(headers)]
+    for row in rows:
+        lines.append(",".join(escape(row.get(h, "")) for h in headers))
+    return "\n".join(lines)
+
+
+def sort_rows(scope, rows):
+    if not isinstance(rows, list):
+        return rows
+    if scope == "sessions":
+        return sorted(rows, key=lambda r: str(r.get("starttime", "")), reverse=True)
+    if scope == "pointstatus":
+        return sorted(rows, key=lambda r: str(r.get("timeref", "")), reverse=True)
+    if scope == "points":
+        return sorted(rows, key=lambda r: int(r.get("pointid", 0)), reverse=True)
+    return rows
+
+
+def request(method, path, query=None, body=None, headers=None):
+    url = BASE_URL + path
+    if query:
+        url = url + "?" + urlencode(query)
+
+    data = None
+    req_headers = headers or {}
+    if body is not None:
+        req_headers["Content-Type"] = "application/json"
+        data = json.dumps(body).encode("utf-8")
+
+    req = urllib.request.Request(url, data=data, headers=req_headers, method=method)
+
+    try:
+        with urllib.request.urlopen(req) as res:
+            content_type = res.headers.get("Content-Type", "")
+            text = res.read().decode("utf-8")
+            return res.status, content_type, text
+    except urllib.error.HTTPError as e:
+        content_type = e.headers.get("Content-Type", "")
+        text = e.read().decode("utf-8")
+        return e.code, content_type, text
+
+
+def main():
+    if len(sys.argv) < 2:
+        print_help()
+        sys.exit(1)
+
+    scope = sys.argv[1]
+    if scope not in SCOPES:
+        print_help()
+        sys.exit(1)
+
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--id")
+    parser.add_argument("--status")
+    parser.add_argument("--minutes")
+    parser.add_argument("--format")
+    parser.add_argument("--source")
+    parser.add_argument("--starttime")
+    parser.add_argument("--endtime")
+    parser.add_argument("--startsoc")
+    parser.add_argument("--endsoc")
+    parser.add_argument("--totalkwh")
+    parser.add_argument("--kwhprice")
+    parser.add_argument("--amount")
+    parser.add_argument("--from", dest="from_date")
+    parser.add_argument("--to")
+    parser.add_argument("--price")
+
+    args = parser.parse_args(sys.argv[2:])
+    fmt = args.format or "csv"
+
+    if scope == "healthcheck":
+        _, _, text = request("GET", "/admin/healthcheck")
+        print(text)
+        return
+
+    if scope == "resetpoints":
+        _, _, text = request("POST", "/admin/resetpoints")
+        print(text)
+        return
+
+    if scope == "addpoints":
+        if not args.source:
+            print_help()
+            sys.exit(1)
+        import mimetypes
+        import uuid
+
+        boundary = "----se25" + uuid.uuid4().hex
+        mime, _ = mimetypes.guess_type(args.source)
+        if mime is None:
+            mime = "text/csv"
+
+        with open(args.source, "rb") as f:
+            file_content = f.read()
+
+        body = (
+            f"--{boundary}\r\n"
+            f"Content-Disposition: form-data; name=\"file\"; filename=\"{os.path.basename(args.source)}\"\r\n"
+            f"Content-Type: {mime}\r\n\r\n"
+        ).encode("utf-8") + file_content + f"\r\n--{boundary}--\r\n".encode("utf-8")
+
+        url = BASE_URL + "/admin/addpoints"
+        req = urllib.request.Request(
+            url,
+            data=body,
+            headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req) as res:
+                print(res.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            print(e.read().decode("utf-8"))
+        return
+
+    if scope == "points":
+        query = {"format": fmt}
+        if args.status:
+            query["status"] = args.status
+        _, content_type, text = request("GET", "/points", query=query)
+        if "application/json" in content_type and fmt == "csv":
+            rows = sort_rows("points", json.loads(text))
+            print(to_csv(rows))
+        else:
+            print(text)
+        return
+
+    if scope == "point":
+        if not args.id:
+            print_help()
+            sys.exit(1)
+        _, _, text = request("GET", f"/point/{args.id}")
+        print(text)
+        return
+
+    if scope == "reserve":
+        if not args.id:
+            print_help()
+            sys.exit(1)
+        path = f"/reserve/{args.id}/{args.minutes}" if args.minutes else f"/reserve/{args.id}"
+        _, _, text = request("POST", path)
+        print(text)
+        return
+
+    if scope == "updpoint":
+        if not args.id:
+            print_help()
+            sys.exit(1)
+        body = {}
+        if args.status:
+            body["status"] = args.status
+        if args.price is not None:
+            body["kwhprice"] = float(args.price)
+        _, _, text = request("POST", f"/updpoint/{args.id}", body=body)
+        print(text)
+        return
+
+    if scope == "newsession":
+        required = [
+            args.id,
+            args.starttime,
+            args.endtime,
+            args.startsoc,
+            args.endsoc,
+            args.totalkwh,
+            args.kwhprice,
+            args.amount,
+        ]
+        if any(v is None for v in required):
+            print_help()
+            sys.exit(1)
+        body = {
+            "id": int(args.id),
+            "starttime": args.starttime,
+            "endtime": args.endtime,
+            "startsoc": int(args.startsoc),
+            "endsoc": int(args.endsoc),
+            "totalkwh": float(args.totalkwh),
+            "kwhprice": float(args.kwhprice),
+            "Amount": float(args.amount),
+        }
+        _, _, text = request("POST", "/newsession", body=body)
+        print(text)
+        return
+
+    if scope == "sessions":
+        if not args.id or not args.from_date or not args.to:
+            print_help()
+            sys.exit(1)
+        query = {"format": fmt}
+        _, content_type, text = request(
+            "GET", f"/sessions/{args.id}/{args.from_date}/{args.to}", query=query
+        )
+        if "application/json" in content_type and fmt == "csv":
+            rows = sort_rows("sessions", json.loads(text))
+            print(to_csv(rows))
+        else:
+            print(text)
+        return
+
+    if scope == "pointstatus":
+        if not args.id or not args.from_date or not args.to:
+            print_help()
+            sys.exit(1)
+        query = {"format": fmt}
+        _, content_type, text = request(
+            "GET", f"/pointstatus/{args.id}/{args.from_date}/{args.to}", query=query
+        )
+        if "application/json" in content_type and fmt == "csv":
+            rows = sort_rows("pointstatus", json.loads(text))
+            print(to_csv(rows))
+        else:
+            print(text)
+        return
+
+
+if __name__ == "__main__":
+    main()
+

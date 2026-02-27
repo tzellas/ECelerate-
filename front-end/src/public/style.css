@@ -1,0 +1,399 @@
+/* =========================
+   GLOBAL LAYOUT & THEME
+   ========================= */
+
+   body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    min-height: 100vh;
+  
+    display: flex;
+    flex-direction: column;
+  
+    background:
+      linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.55)),
+      url("/images/hero.jpg") center / cover no-repeat fixed;
+  
+    color: white;
+  }
+  
+  .container {
+    flex: 1;
+    padding: 20px;
+  }
+  
+  /* =========================
+     NAVBAR & FOOTER
+     ========================= */
+  
+  .navbar {
+    background: rgba(30, 30, 30, 0.85);
+    backdrop-filter: blur(6px);
+    color: white;
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  
+  .navbar a {
+    color: white;
+    margin-left: 15px;
+    text-decoration: none;
+  }
+  
+  .footer {
+    background: rgba(30, 30, 30, 0.85);
+    color: #ccc;
+    padding: 15px;
+    text-align: center;
+    border-top: 1px solid #333;
+  }
+  
+  /* =========================
+     PAGE TITLES
+     ========================= */
+  
+  .page-title {
+    text-align: center;
+    margin-bottom: 30px;
+    font-size: 2.5rem;
+    font-weight: bold;
+  }
+  
+  /* =========================
+     HERO (HOMEPAGE)
+     ========================= */
+  
+  .hero {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  
+  .hero-content {
+    max-width: 700px;
+    padding: 20px;
+  }
+  
+  .hero-content h1 {
+    font-size: 3rem;
+    margin-bottom: 15px;
+  }
+  
+  .hero-content p {
+    font-size: 1.2rem;
+    margin-bottom: 30px;
+    color: #e0e0e0;
+  }
+  
+  .hero-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  
+  /* =========================
+     BUTTON SYSTEM
+     ========================= */
+  
+  .btn {
+    padding: 12px 22px;
+    border-radius: 30px;
+    text-decoration: none;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+  }
+  
+  .btn-primary {
+    background: #00c853;
+    color: black;
+  }
+  
+  .btn-primary:hover {
+    background: #00b248;
+  }
+  
+  .btn-light {
+    background: white;
+    color: black;
+  }
+  
+  .btn-light:hover {
+    background: #e6e6e6;
+  }
+  
+  .btn-outline {
+    background: transparent;
+    border: 2px solid white;
+    color: white;
+  }
+  
+  .btn-outline:hover {
+    background: white;
+    color: black;
+  }
+  
+  /* =========================
+     CARD SYSTEM (CORE)
+     ========================= */
+  
+  .card {
+    background: rgba(30, 30, 30, 0.85);
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    color: white;
+  }
+  
+  /* Card sizes */
+  .card-medium {
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  
+  .card-wide {
+    max-width: 1000px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  
+  /* Card modifiers */
+  .card-center {
+    text-align: center;
+  }
+  
+  /* Card headers (centered by default) */
+  .card h3,
+  .card h4 {
+    color: #ccc;
+    margin-bottom: 15px;
+    font-weight: normal;
+    text-align: center;
+  }
+  
+  /* Cards containing tables */
+  .card-table h3,
+  .card-table h4 {
+    text-align: left;
+  }
+
+  /* Card header with action button */
+.card-header-with-button {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 15px;
+  }
+  
+  .card-header-with-button h3 {
+    margin: 0;
+    text-align: left;
+  }
+  
+  
+  /* Highlighted numbers */
+  .stat-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #00c853;
+  }
+  
+  /* =========================
+     GRID HELPERS
+     ========================= */
+  
+  .grid {
+    display: grid;
+    gap: 20px;
+  }
+  
+  .grid-center {
+    justify-content: center;
+  }
+  
+  .grid-auto {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 260px));
+  }
+  
+  /* Account info layout */
+    .info-grid {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    row-gap: 10px;
+    column-gap: 15px;
+    align-items: center;
+  }
+  
+  .info-label {
+    text-align: right;
+    color: #aaa;
+    font-weight: bold;
+  }
+  
+  .info-value {
+    text-align: left;
+    color: white;
+  }
+  
+  /* =========================
+     FORMS (GLOBAL)
+     ========================= */
+  
+  .form {
+    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin: 0 auto;
+  }
+  
+  .form label {
+    color: #ccc;
+    font-size: 1rem;
+    text-align: center;
+  }
+  
+  .form input,
+  .form select {
+    width: 100%;
+    padding: 14px 16px;
+    border-radius: 10px;
+    border: none;
+    font-size: 1rem;
+    background: #111;
+    color: white;
+  }
+  
+  /* =========================
+     TABLES (GLOBAL)
+     ========================= */
+  
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+  }
+  
+  .table th,
+  .table td {
+    padding: 12px 10px;
+    text-align: center;
+  }
+  
+  .table th {
+    color: #aaa;
+    font-weight: normal;
+    border-bottom: 1px solid #444;
+  }
+  
+  .table td {
+    border-bottom: 1px solid #333;
+  }
+  
+  .table tr:last-child td {
+    border-bottom: none;
+  }
+  
+  /* =========================
+     ACTION AREAS
+     ========================= */
+  
+  .actions-center {
+    margin-top: 20px;
+    text-align: center;
+  }
+
+  .card-header-with-button .actions-center {
+    margin-top: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  .actions-left {
+    margin-bottom: 15px;
+    display: flex;
+    justify-content: flex-start;
+  }
+  
+  /* =========================
+     PAGE WRAPPERS
+     ========================= */
+  
+  .wrapper {
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  
+  /* =========================
+   STATISTICS / GRAPHS
+   ========================= */
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+  }
+  
+  .stat-box {
+    background: rgba(20, 20, 20, 0.9);
+    border: 1px solid #333;
+    border-radius: 10px;
+    padding: 15px;
+  }
+  
+  .stat-box h4 {
+    color: #ccc;
+    text-align: center;
+    margin-bottom: 10px;
+    font-weight: normal;
+  }
+  
+  .chart-placeholder {
+    height: 180px;
+    border: 2px dashed #444;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #777;
+    font-size: 0.9rem;
+  }
+  
+  .progress-bar {
+    width: 100%;
+    height: 20px;
+    background: #eee;
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 12px 0;
+  }
+  
+.progress {
+    height: 100%;
+    width: 100%;
+    background: #00c853;
+    transition: width 0.5s linear;
+  }
+
+  .stats-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .stats-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
