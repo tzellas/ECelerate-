@@ -1,6 +1,6 @@
 # ECcelerate
 
-**ECcelerate** is a project from Liagkas Nikolaos (el19221) and Tzellas Apostolos (el19878) for the ECE NTUA course Software Engineering. 
+**ECcelerate** is a project from Liagkas Nikolaos (el19221) and Tzellas Apostolos (el19878) for the ECE NTUA course Software Engineering. The full git history is not available because this project was developed through academic private github accounts.
 
 Our goal was to develop a full-stack website that focuses on **Electrical Vehicle Charging**. It provides comprehensive services for the management of electric vehicle charging. Its main goal is to facilitate vehicle owners in locating nearby and available charging stations through an interactive map, comparing prices and technical characteristics, reserving and activating chargers for a specific time period, and monitoring the charging process and its cost in real time.
 
